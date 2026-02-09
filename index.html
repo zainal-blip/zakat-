@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EduZakat: Portal Edukasi & Kalkulasi Zakat Interaktif</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <!-- Chosen Palette: Warm Islamic Earth Tones - Cream background (#FDFBF7), Sage Green (#4F772D) for primary actions, Sand (#E9E4D4) for panels, and Dark Charcoal (#333333) for text. -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'zakat-bg': '#FDFBF7',
+                        'zakat-primary': '#4F772D',
+                        'zakat-secondary': '#90A955',
+                        'zakat-accent': '#ECF39E',
+                        'zakat-panel': '#E9E4D4',
+                        'zakat-text': '#31572C',
+                        'zakat-dark': '#132A13'
+                    },
+                    fontFamily: {
+                        sans: ['Segoe UI', 'Roboto', 'Helvetica', 'Arial', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Chart Container Styling per Requirements */
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 300px;
+            max-height: 400px;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 350px;
+            }
+        }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #FDFBF7; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #90A955; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #4F772D; 
+        }
+
+        .tab-active {
+            border-bottom: 3px solid #4F772D;
+            color: #132A13;
+            font-weight: bold;
+        }
+        .tab-inactive {
+            color: #6B7280;
+            border-bottom: 3px solid transparent;
+        }
+        .tab-inactive:hover {
+            color: #4F772D;
+            border-bottom: 3px solid #90A955;
+        }
+        
+        .card-hover {
+            transition: all 0.3s ease;
+        }
+        .card-hover:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+    </style>
+    <!-- Application Structure Plan:
+         Designed as a tabbed Dashboard for non-linear exploration.
+         1. "Beranda & Filosofi": Overview, Definitions, Legal Basis, and Wisdom (Hikmah). Introduces the concept.
+         2. "Peta Zakat": A structural comparison between Zakat Fitrah and Zakat Maal using comparative cards.
+         3. "Eksplorasi Maal": Interactive grid where users click specific asset types (Gold, Profession, Agriculture) to see specific logic/nishab.
+         4. "Kalkulator Zakat": Functional tool allowing users to simulate calculation based on the logic learned.
+         5. "Distribusi (Asnaf)": Visualizes the 8 beneficiaries using a Chart.js doughnut chart to represent the recipients.
+         This structure moves from theory -> structure -> detail -> application -> distribution.
+    -->
+    
+    <!-- Visualization & Content Choices:
+         1. Comparison Cards (HTML/CSS): To contrast Fitrah vs Maal clearly. Goal: Distinguish.
+         2. Interactive List/Detail View (JS): For Zakat Maal types. Goal: Organize detailed rules without overwhelming.
+         3. Calculator (JS Logic): To apply the math (2.5%, 5%, 10%). Goal: Engage/Change.
+         4. Doughnut Chart (Chart.js): To visualize the 8 Asnaf groups. Goal: Inform/Organize. 
+         5. Dynamic Status Indicators: Show "Wajib" or "Tidak Wajib" in calculator based on logic.
+         NO SVG used. NO Mermaid used.
+    -->
+    
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+</head>
+<body class="bg-zakat-bg text-gray-800 font-sans min-h-screen flex flex-col">
+
+    <!-- Header -->
+    <header class="bg-zakat-primary text-white shadow-lg sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+            <div>
+                <div class="flex items-center space-x-2">
+                    <div class="text-3xl font-bold">EduZakat</div>
+                    <div class="text-xs bg-zakat-accent text-zakat-dark px-2 py-1 rounded-full font-semibold">Interaktif</div>
+                </div>
+                <div class="text-xs text-zakat-panel mt-1 font-medium tracking-wide">SMP Lazuardi Haura</div>
+            </div>
+            <nav class="hidden md:flex space-x-6 text-sm font-medium">
+                <button onclick="switchTab('filosofi')" class="hover:text-zakat-accent transition">Filosofi</button>
+                <button onclick="switchTab('jenis')" class="hover:text-zakat-accent transition">Jenis Zakat</button>
+                <button onclick="switchTab('maal')" class="hover:text-zakat-accent transition">Zakat Maal</button>
+                <button onclick="switchTab('kalkulator')" class="bg-zakat-accent text-zakat-dark px-3 py-1 rounded hover:bg-white transition shadow">Kalkulator</button>
+            </nav>
+            <!-- Mobile Menu Button (Simplified for this SPA context) -->
+            <button class="md:hidden text-white font-bold" onclick="document.getElementById('mobile-nav').classList.toggle('hidden')">☰</button>
+        </div>
+        <!-- Mobile Nav -->
+        <div id="mobile-nav" class="hidden md:hidden bg-zakat-secondary p-4 space-y-2">
+            <button onclick="switchTab('filosofi')" class="block w-full text-left text-white font-semibold">Filosofi</button>
+            <button onclick="switchTab('jenis')" class="block w-full text-left text-white font-semibold">Jenis Zakat</button>
+            <button onclick="switchTab('maal')" class="block w-full text-left text-white font-semibold">Zakat Maal</button>
+            <button onclick="switchTab('kalkulator')" class="block w-full text-left text-white font-semibold">Kalkulator</button>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
+
+        <!-- Navigation Tabs (Desktop/Tablet visible as secondary nav) -->
+        <div class="border-b border-gray-200 mb-8 overflow-x-auto">
+            <nav class="flex -mb-px space-x-8 min-w-max" aria-label="Tabs">
+                <button onclick="switchTab('filosofi')" id="tab-filosofi" class="tab-active whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+                    1. Pengertian & Hikmah
+                </button>
+                <button onclick="switchTab('jenis')" id="tab-jenis" class="tab-inactive whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+                    2. Peta Jenis Zakat
+                </button>
+                <button onclick="switchTab('maal')" id="tab-maal" class="tab-inactive whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+                    3. Ensiklopedia Maal
+                </button>
+                <button onclick="switchTab('asnaf')" id="tab-asnaf" class="tab-inactive whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+                    4. Penerima (Asnaf)
+                </button>
+                <button onclick="switchTab('kalkulator')" id="tab-kalkulator" class="tab-inactive whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+                    5. Simulasi Hitung
+                </button>
+            </nav>
+        </div>
+
+        <!-- SECTION 1: FILOSOFI (Definition, Legal, Wisdom) -->
+        <section id="content-filosofi" class="space-y-8 animate-fade-in">
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 md:p-8">
+                <h1 class="text-3xl font-bold text-zakat-dark mb-4">Mengenal Zakat</h1>
+                <p class="text-gray-600 mb-6 leading-relaxed">
+                    Bagian ini menguraikan fondasi dasar dari Zakat, mulai dari pengertian bahasa dan istilah, dasar hukum dalam Al-Qur'an, hingga hikmah di balik kewajiban ini. Pahamilah esensi "Suci dan Tumbuh" sebelum mendalami perhitungan teknisnya.
+                </p>
+
+                <div class="grid md:grid-cols-2 gap-8">
+                    <!-- Definition Card -->
+                    <div class="bg-zakat-bg rounded-xl p-6 border-l-4 border-zakat-primary">
+                        <h2 class="text-xl font-bold text-zakat-primary mb-3">Definisi</h2>
+                        <ul class="space-y-3">
+                            <li class="flex items-start">
+                                <span class="bg-zakat-secondary text-white rounded-full w-6 h-6 flex items-center justify-center text-xs mr-2 mt-1">1</span>
+                                <div>
+                                    <strong class="text-gray-800">Etimologi (Bahasa):</strong>
+                                    <p class="text-sm text-gray-600">Suci, Tumbuh, Berkembang, dan Berkah.</p>
+                                </div>
+                            </li>
+                            <li class="flex items-start">
+                                <span class="bg-zakat-secondary text-white rounded-full w-6 h-6 flex items-center justify-center text-xs mr-2 mt-1">2</span>
+                                <div>
+                                    <strong class="text-gray-800">Terminologi (Istilah):</strong>
+                                    <p class="text-sm text-gray-600">Bagian tertentu dari harta yang wajib dikeluarkan oleh setiap Muslim apabila telah mencapai syarat yang ditetapkan, untuk diberikan kepada golongan yang berhak (asnaf).</p>
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <!-- Legal Basis Card -->
+                    <div class="bg-zakat-dark text-white rounded-xl p-6 relative overflow-hidden">
+                        <div class="absolute top-0 right-0 opacity-10 text-9xl font-serif">❝</div>
+                        <h2 class="text-xl font-bold text-zakat-accent mb-3">Dasar Hukum</h2>
+                        <p class="text-zakat-accent text-sm font-semibold mb-2">Rukun Islam ke-3 (Wajib 'Ain)</p>
+                        <blockquote class="italic text-gray-300 mb-2">
+                            "Ambillah zakat dari sebagian harta mereka, dengan zakat itu kamu membersihkan dan mensucikan mereka..."
+                        </blockquote>
+                        <div class="text-right text-sm font-bold text-zakat-secondary">— QS. At-Taubah: 103</div>
+                    </div>
+                </div>
+
+                <!-- Wisdom Grid -->
+                <div class="mt-8">
+                    <h3 class="text-lg font-bold text-zakat-dark mb-4 border-b pb-2">Hikmah & Manfaat Zakat</h3>
+                    <div class="grid sm:grid-cols-2 md:grid-cols-3 gap-4">
+                        <div class="bg-white border border-gray-200 p-4 rounded-lg shadow-sm hover:shadow-md transition">
+                            <div class="text-2xl mb-2">✨</div>
+                            <h4 class="font-bold text-sm">Penyucian Jiwa</h4>
+                            <p class="text-xs text-gray-500 mt-1">Menjauhkan diri dari sifat kikir, serakah, dan cinta dunia berlebih.</p>
+                        </div>
+                        <div class="bg-white border border-gray-200 p-4 rounded-lg shadow-sm hover:shadow-md transition">
+                            <div class="text-2xl mb-2">⚖️</div>
+                            <h4 class="font-bold text-sm">Keadilan Sosial</h4>
+                            <p class="text-xs text-gray-500 mt-1">Mengurangi kesenjangan (gap) antara si kaya dan si miskin.</p>
+                        </div>
+                        <div class="bg-white border border-gray-200 p-4 rounded-lg shadow-sm hover:shadow-md transition">
+                            <div class="text-2xl mb-2">🤝</div>
+                            <h4 class="font-bold text-sm">Empati Umat</h4>
+                            <p class="text-xs text-gray-500 mt-1">Menumbuhkan rasa persaudaraan dan kepedulian sesama.</p>
+                        </div>
+                        <div class="bg-white border border-gray-200 p-4 rounded-lg shadow-sm hover:shadow-md transition">
+                            <div class="text-2xl mb-2">🚿</div>
+                            <h4 class="font-bold text-sm">Pembersih Harta</h4>
+                            <p class="text-xs text-gray-500 mt-1">Membersihkan harta dari hak orang lain yang mungkin terselip.</p>
+                        </div>
+                        <div class="bg-white border border-gray-200 p-4 rounded-lg shadow-sm hover:shadow-md transition">
+                            <div class="text-2xl mb-2">📈</div>
+                            <h4 class="font-bold text-sm">Pemerataan Ekonomi</h4>
+                            <p class="text-xs text-gray-500 mt-1">Membantu perputaran roda ekonomi umat secara lebih luas.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 2: JENIS ZAKAT (Comparison) -->
+        <section id="content-jenis" class="space-y-6 hidden animate-fade-in">
+            <div class="text-center max-w-2xl mx-auto mb-8">
+                <h2 class="text-2xl font-bold text-zakat-dark">Dua Pilar Utama Zakat</h2>
+                <p class="text-gray-600 mt-2">Zakat terbagi menjadi dua kategori besar dengan tujuan, waktu, dan objek yang berbeda. Pahami perbedaan mendasar antara Zakat Jiwa (Fitrah) dan Zakat Harta (Maal).</p>
+            </div>
+
+            <div class="grid md:grid-cols-2 gap-8">
+                <!-- Zakat Fitrah Card -->
+                <div class="bg-white rounded-2xl shadow-lg overflow-hidden border-t-8 border-zakat-secondary card-hover">
+                    <div class="p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-2xl font-bold text-zakat-dark">Zakat Fitrah</h3>
+                            <span class="bg-zakat-secondary text-white text-xs px-2 py-1 rounded">Zakat Jiwa</span>
+                        </div>
+                        <p class="text-gray-600 text-sm mb-6 min-h-[40px]">Wajib bagi setiap Muslim (laki-laki/perempuan, besar/kecil) untuk menyempurnakan ibadah puasa Ramadan.</p>
+                        
+                        <div class="space-y-4">
+                            <div class="flex items-center bg-zakat-bg p-3 rounded-lg">
+                                <div class="w-10 h-10 bg-white rounded-full flex items-center justify-center text-xl shadow-sm mr-3">🍚</div>
+                                <div>
+                                    <p class="text-xs font-bold text-gray-500 uppercase">Besaran</p>
+                                    <p class="font-semibold text-zakat-dark">2,5 kg / 3,5 liter beras</p>
+                                    <p class="text-xs text-gray-400">Atau makanan pokok setempat</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center bg-zakat-bg p-3 rounded-lg">
+                                <div class="w-10 h-10 bg-white rounded-full flex items-center justify-center text-xl shadow-sm mr-3">🕒</div>
+                                <div>
+                                    <p class="text-xs font-bold text-gray-500 uppercase">Waktu</p>
+                                    <p class="font-semibold text-zakat-dark">Bulan Ramadan</p>
+                                    <p class="text-xs text-gray-400">Hingga sebelum Shalat Idul Fitri</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Zakat Maal Card -->
+                <div class="bg-white rounded-2xl shadow-lg overflow-hidden border-t-8 border-zakat-primary card-hover">
+                    <div class="p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-2xl font-bold text-zakat-dark">Zakat Maal</h3>
+                            <span class="bg-zakat-primary text-white text-xs px-2 py-1 rounded">Zakat Harta</span>
+                        </div>
+                        <p class="text-gray-600 text-sm mb-6 min-h-[40px]">Dikenakan atas kepemilikan harta yang telah memenuhi syarat tertentu (Nishab & Haul).</p>
+                        
+                        <div class="space-y-4">
+                            <div class="flex items-center bg-zakat-bg p-3 rounded-lg">
+                                <div class="w-10 h-10 bg-white rounded-full flex items-center justify-center text-xl shadow-sm mr-3">💰</div>
+                                <div>
+                                    <p class="text-xs font-bold text-gray-500 uppercase">Objek</p>
+                                    <p class="font-semibold text-zakat-dark">Emas, Uang, Aset, Hasil Tani</p>
+                                    <p class="text-xs text-gray-400">Profesi, Pertambangan, Ternak</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center bg-zakat-bg p-3 rounded-lg">
+                                <div class="w-10 h-10 bg-white rounded-full flex items-center justify-center text-xl shadow-sm mr-3">📊</div>
+                                <div>
+                                    <p class="text-xs font-bold text-gray-500 uppercase">Syarat Utama</p>
+                                    <p class="font-semibold text-zakat-dark">Nishab & Haul</p>
+                                    <p class="text-xs text-gray-400">Batas minimal & kepemilikan 1 tahun</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Syarat Wajib Zakat Maal List -->
+            <div class="bg-zakat-panel rounded-xl p-6 mt-6">
+                <h3 class="text-lg font-bold text-zakat-dark mb-4">Syarat Wajib Zakat Maal</h3>
+                <div class="flex flex-wrap gap-2">
+                    <span class="px-3 py-1 bg-white rounded-full text-sm shadow-sm text-gray-700">✅ Beragama Islam</span>
+                    <span class="px-3 py-1 bg-white rounded-full text-sm shadow-sm text-gray-700">✅ Merdeka</span>
+                    <span class="px-3 py-1 bg-white rounded-full text-sm shadow-sm text-gray-700">✅ Harta Milik Sempurna</span>
+                    <span class="px-3 py-1 bg-white rounded-full text-sm shadow-sm text-gray-700 font-bold border border-zakat-primary">✅ Mencapai Nishab</span>
+                    <span class="px-3 py-1 bg-white rounded-full text-sm shadow-sm text-gray-700 font-bold border border-zakat-primary">✅ Mencapai Haul (1 Tahun)*</span>
+                </div>
+                <p class="text-xs text-gray-500 mt-2 italic">*Kecuali zakat pertanian dan rikaz yang ditunaikan saat panen/penemuan.</p>
+            </div>
+        </section>
+
+        <!-- SECTION 3: ENSIKLOPEDIA MAAL (Detailed Types) -->
+        <section id="content-maal" class="space-y-6 hidden animate-fade-in">
+            <div class="mb-6">
+                <h2 class="text-2xl font-bold text-zakat-dark">Ensiklopedia Zakat Maal</h2>
+                <p class="text-gray-600">Klik pada jenis harta di bawah untuk melihat detail perhitungan, nishab, dan kadarnya.</p>
+            </div>
+
+            <div class="flex flex-col md:flex-row gap-6">
+                <!-- Sidebar Selection -->
+                <div class="w-full md:w-1/3 flex flex-col space-y-2">
+                    <button id="btn-maal-emas" onclick="showMaalDetail('emas')" class="maal-btn active p-4 text-left rounded-lg bg-white shadow-sm hover:bg-gray-50 transition border-l-4 border-zakat-primary focus:outline-none flex items-center justify-between">
+                        <span>🏆 Emas & Perak</span> <span class="text-xl">›</span>
+                    </button>
+                    <button id="btn-maal-uang" onclick="showMaalDetail('uang')" class="maal-btn p-4 text-left rounded-lg bg-white shadow-sm hover:bg-gray-50 transition border-l-4 border-transparent focus:outline-none flex items-center justify-between">
+                        <span>💵 Uang Simpanan</span> <span class="text-xl">›</span>
+                    </button>
+                    <button id="btn-maal-dagang" onclick="showMaalDetail('dagang')" class="maal-btn p-4 text-left rounded-lg bg-white shadow-sm hover:bg-gray-50 transition border-l-4 border-transparent focus:outline-none flex items-center justify-between">
+                        <span>🏪 Perniagaan</span> <span class="text-xl">›</span>
+                    </button>
+                    <button id="btn-maal-profesi" onclick="showMaalDetail('profesi')" class="maal-btn p-4 text-left rounded-lg bg-white shadow-sm hover:bg-gray-50 transition border-l-4 border-transparent focus:outline-none flex items-center justify-between">
+                        <span>💼 Penghasilan (Profesi)</span> <span class="text-xl">›</span>
+                    </button>
+                    <button id="btn-maal-tani" onclick="showMaalDetail('tani')" class="maal-btn p-4 text-left rounded-lg bg-white shadow-sm hover:bg-gray-50 transition border-l-4 border-transparent focus:outline-none flex items-center justify-between">
+                        <span>🌾 Pertanian</span> <span class="text-xl">›</span>
+                    </button>
+                </div>
+
+                <!-- Detail Panel -->
+                <div class="w-full md:w-2/3 bg-white rounded-2xl shadow-lg p-6 md:p-8 border border-gray-100 relative">
+                    <div id="maal-detail-content">
+                        <!-- Content injected via JS -->
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 4: ASNAF (Beneficiaries) -->
+        <section id="content-asnaf" class="space-y-6 hidden animate-fade-in">
+            <div class="mb-6">
+                <h2 class="text-2xl font-bold text-zakat-dark">8 Golongan Penerima Zakat (Mustahik)</h2>
+                <p class="text-gray-600">Berdasarkan QS. At-Taubah ayat 60, zakat hanya boleh disalurkan kepada 8 golongan berikut. Diagram di bawah menggambarkan kelompok-kelompok tersebut.</p>
+            </div>
+            
+            <div class="grid md:grid-cols-2 gap-8 items-center">
+                <!-- Chart Section -->
+                <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+                    <div class="chart-container">
+                        <canvas id="asnafChart"></canvas>
+                    </div>
+                    <p class="text-center text-xs text-gray-500 mt-2">Visualisasi 8 Golongan Mustahik</p>
+                </div>
+
+                <!-- Text Legend/Detail -->
+                <div class="grid grid-cols-1 gap-3">
+                    <div class="group p-3 hover:bg-zakat-bg rounded-lg transition border-l-4 border-red-400">
+                        <h4 class="font-bold text-gray-800">1. Fakir</h4>
+                        <p class="text-xs text-gray-600">Tidak punya harta & tenaga untuk kebutuhan hidup.</p>
+                    </div>
+                    <div class="group p-3 hover:bg-zakat-bg rounded-lg transition border-l-4 border-orange-400">
+                        <h4 class="font-bold text-gray-800">2. Miskin</h4>
+                        <p class="text-xs text-gray-600">Punya penghasilan tapi tak cukup memenuhi kebutuhan dasar.</p>
+                    </div>
+                    <div class="group p-3 hover:bg-zakat-bg rounded-lg transition border-l-4 border-yellow-400">
+                        <h4 class="font-bold text-gray-800">3. Amil</h4>
+                        <p class="text-xs text-gray-600">Panitia pengelola zakat.</p>
+                    </div>
+                    <div class="group p-3 hover:bg-zakat-bg rounded-lg transition border-l-4 border-green-400">
+                        <h4 class="font-bold text-gray-800">4. Mu'allaf</h4>
+                        <p class="text-xs text-gray-600">Baru masuk Islam atau perlu dilunakkan hatinya.</p>
+                    </div>
+                    <div class="group p-3 hover:bg-zakat-bg rounded-lg transition border-l-4 border-teal-400">
+                        <h4 class="font-bold text-gray-800">5. Riqab</h4>
+                        <p class="text-xs text-gray-600">Hamba sahaya yang ingin merdeka (atau korban penindasan).</p>
+                    </div>
+                    <div class="group p-3 hover:bg-zakat-bg rounded-lg transition border-l-4 border-blue-400">
+                        <h4 class="font-bold text-gray-800">6. Gharim</h4>
+                        <p class="text-xs text-gray-600">Berhutang untuk kebutuhan hidup (bukan maksiat).</p>
+                    </div>
+                    <div class="group p-3 hover:bg-zakat-bg rounded-lg transition border-l-4 border-indigo-400">
+                        <h4 class="font-bold text-gray-800">7. Fisabilillah</h4>
+                        <p class="text-xs text-gray-600">Pejuang di jalan Allah (dakwah, pendidikan, dll).</p>
+                    </div>
+                    <div class="group p-3 hover:bg-zakat-bg rounded-lg transition border-l-4 border-purple-400">
+                        <h4 class="font-bold text-gray-800">8. Ibnu Sabil</h4>
+                        <p class="text-xs text-gray-600">Musafir yang kehabisan bekal dalam ketaatan.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 5: CALCULATOR (Interaction) -->
+        <section id="content-kalkulator" class="space-y-6 hidden animate-fade-in">
+            <div class="mb-6">
+                <h2 class="text-2xl font-bold text-zakat-dark">Simulasi Hitung Zakat</h2>
+                <p class="text-gray-600">Gunakan alat di bawah ini untuk memperkirakan kewajiban zakat Anda. Perhitungan didasarkan pada asumsi harga emas saat ini (dapat diubah).</p>
+            </div>
+
+            <div class="bg-white rounded-2xl shadow-xl p-6 md:p-8 max-w-4xl mx-auto border border-gray-100">
+                <!-- Settings: Gold Price -->
+                <div class="mb-8 bg-zakat-bg p-4 rounded-lg border border-gray-200">
+                    <label class="block text-sm font-bold text-gray-700 mb-2">Asumsi Harga Emas Murni (per gram)</label>
+                    <div class="flex items-center">
+                        <span class="bg-gray-200 text-gray-600 p-2 rounded-l-md border border-r-0 border-gray-300">Rp</span>
+                        <input type="number" id="gold-price" value="1000000" class="w-full p-2 border border-gray-300 rounded-r-md focus:ring-2 focus:ring-zakat-primary focus:outline-none" oninput="updateCalculations()">
+                    </div>
+                    <p class="text-xs text-gray-500 mt-1">Harga emas digunakan sebagai patokan Nishab untuk zakat harta, perdagangan, dan uang.</p>
+                </div>
+
+                <div class="grid md:grid-cols-2 gap-8">
+                    <!-- Input Section -->
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">Jenis Zakat</label>
+                            <select id="calc-type" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-zakat-primary focus:outline-none" onchange="updateCalcUI()">
+                                <option value="tabungan">Uang Simpanan / Tabungan (Haul 1 Thn)</option>
+                                <option value="emas">Emas (Gram)</option>
+                                <option value="profesi">Penghasilan (Per Bulan)</option>
+                                <option value="dagang">Perdagangan (Aset Lancar - Utang)</option>
+                            </select>
+                        </div>
+
+                        <div id="input-container">
+                            <label class="block text-sm font-semibold text-gray-700 mb-1" id="input-label">Total Harta (Rp)</label>
+                            <div class="flex items-center">
+                                <span class="bg-gray-200 text-gray-600 p-3 rounded-l-lg border border-r-0 border-gray-300" id="currency-prefix">Rp</span>
+                                <input type="number" id="calc-amount" placeholder="0" class="w-full p-3 border border-gray-300 rounded-r-lg focus:ring-2 focus:ring-zakat-primary focus:outline-none" oninput="updateCalculations()">
+                            </div>
+                        </div>
+
+                        <div class="pt-4">
+                            <button onclick="calculate()" class="w-full bg-zakat-primary text-white font-bold py-3 rounded-lg hover:bg-zakat-text transition shadow-lg transform active:scale-95">
+                                Hitung Kewajiban
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Result Section -->
+                    <div class="bg-zakat-dark text-white rounded-xl p-6 flex flex-col justify-center">
+                        <div class="text-center mb-6">
+                            <p class="text-zakat-secondary text-sm font-medium uppercase tracking-wider mb-1">Status</p>
+                            <h3 id="result-status" class="text-2xl font-bold">Menunggu Input</h3>
+                        </div>
+
+                        <div class="space-y-4 border-t border-gray-700 pt-4">
+                            <div class="flex justify-between items-center">
+                                <span class="text-gray-400 text-sm">Batas Nishab:</span>
+                                <span id="result-nishab" class="font-mono font-bold">-</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-gray-400 text-sm">Kadar Zakat:</span>
+                                <span id="result-rate" class="font-mono font-bold">-</span>
+                            </div>
+                        </div>
+
+                        <div class="mt-8 bg-white/10 rounded-lg p-4 text-center">
+                            <p class="text-xs text-gray-300 mb-1">Jumlah Zakat yang Harus Dikeluarkan</p>
+                            <div id="result-value" class="text-3xl font-bold text-zakat-accent">Rp 0</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <p class="text-xs text-center text-gray-400 mt-6 bg-yellow-50 p-2 rounded border border-yellow-200 text-yellow-800">
+                    <strong>Catatan:</strong> Perhitungan ini adalah simulasi. Untuk zakat profesi, perhitungan menggunakan qiyas nishab zakat pertanian (653kg gabah) atau nishab emas (85gr) tergantung pendapat ulama yang diikuti. Di sini menggunakan nishab emas 85gr (disetahunkan) untuk penyederhanaan umum atau bulanan proporsional.
+                </p>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-zakat-dark text-gray-300 py-8">
+        <div class="max-w-7xl mx-auto px-4 text-center">
+            <p class="font-semibold text-white text-lg">EduZakat Interaktif</p>
+            <p class="text-sm mt-2 font-medium text-zakat-panel">SMP Lazuardi Haura</p>
+            <p class="text-sm mt-1 text-gray-400">Disusun oleh: <span class="text-zakat-secondary">Tr. Zainal Musthofa, M.Pd</span></p>
+            <div class="mt-6 text-xs text-gray-500 border-t border-gray-800 pt-4">
+                &copy; 2023 SMP Lazuardi Haura. Dibuat untuk tujuan edukasi.
+            </div>
+        </div>
+    </footer>
+
+    <!-- JavaScript Logic -->
+    <script>
+        // Data & State
+        const maalData = {
+            'emas': {
+                title: 'Emas & Perak',
+                icon: '🏆',
+                nishab: '85 gram emas / 595 gram perak',
+                rate: '2.5%',
+                waktu: 'Setelah 1 Tahun (Haul)',
+                desc: 'Wajib dizakati jika emas/perak tersebut disimpan (bukan dipakai sehari-hari secara wajar) dan telah mencapai haul.',
+                calcType: 'gram'
+            },
+            'uang': {
+                title: 'Uang Simpanan',
+                icon: '💵',
+                nishab: 'Setara 85 gram emas',
+                rate: '2.5%',
+                waktu: 'Setelah 1 Tahun (Haul)',
+                desc: 'Tabungan, deposito, atau uang cash yang mengendap selama satu tahun penuh dan nilainya melebih harga 85 gram emas.',
+                calcType: 'currency'
+            },
+            'dagang': {
+                title: 'Perniagaan',
+                icon: '🏪',
+                nishab: 'Setara 85 gram emas',
+                rate: '2.5%',
+                waktu: 'Setelah 1 Tahun (Haul)',
+                desc: 'Aset Dagang (Modal diputar + Laba + Piutang Lancar) dikurangi Utang Jangka Pendek saat jatuh tempo haul.',
+                calcType: 'currency'
+            },
+            'profesi': {
+                title: 'Penghasilan (Profesi)',
+                icon: '💼',
+                nishab: 'Setara 653 kg gabah / 520 kg beras (atau 85gr emas/thn)',
+                rate: '2.5%',
+                waktu: 'Setiap menerima penghasilan',
+                desc: 'Gaji, honorarium, jasa, dll. Dapat ditunaikan setiap bulan atau diakumulasi di akhir tahun.',
+                calcType: 'currency'
+            },
+            'tani': {
+                title: 'Pertanian',
+                icon: '🌾',
+                nishab: '653 kg gabah / 520 kg beras',
+                rate: '5% (Irigasi biaya) / 10% (Tadah hujan)',
+                waktu: 'Setiap Panen',
+                desc: 'Hasil tanaman makanan pokok. Tidak menunggu haul (1 tahun), tapi dikeluarkan setiap kali panen.',
+                calcType: 'kg'
+            }
+        };
+
+        // Navigation Logic
+        function switchTab(tabId) {
+            // Hide all sections
+            ['filosofi', 'jenis', 'maal', 'asnaf', 'kalkulator'].forEach(id => {
+                document.getElementById(`content-${id}`).classList.add('hidden');
+                
+                const btn = document.getElementById(`tab-${id}`);
+                if(btn) {
+                    btn.classList.remove('tab-active', 'border-zakat-primary', 'text-zakat-dark');
+                    btn.classList.add('tab-inactive', 'border-transparent');
+                }
+            });
+
+            // Show selected section
+            const content = document.getElementById(`content-${tabId}`);
+            content.classList.remove('hidden');
+            
+            // Update Tab Style
+            const btn = document.getElementById(`tab-${tabId}`);
+            if(btn) {
+                btn.classList.remove('tab-inactive', 'border-transparent');
+                btn.classList.add('tab-active', 'border-zakat-primary', 'text-zakat-dark');
+            }
+
+            // Trigger chart render if Asnaf tab is opened and not yet rendered
+            if(tabId === 'asnaf' && !window.asnafChartRendered) {
+                renderAsnafChart();
+                window.asnafChartRendered = true;
+            }
+        }
+
+        // Maal Detail Logic
+        function showMaalDetail(key) {
+            const data = maalData[key];
+            const html = `
+                <div class="animate-fade-in">
+                    <div class="flex items-center mb-4">
+                        <div class="text-4xl mr-4">${data.icon}</div>
+                        <div>
+                            <h3 class="text-2xl font-bold text-zakat-dark">${data.title}</h3>
+                            <span class="text-sm bg-zakat-secondary text-white px-2 py-1 rounded">Rate: ${data.rate}</span>
+                        </div>
+                    </div>
+                    <div class="bg-zakat-bg p-4 rounded-lg border-l-4 border-zakat-primary mb-6">
+                        <p class="text-gray-700 italic">"${data.desc}"</p>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div class="bg-white border border-gray-200 p-4 rounded shadow-sm">
+                            <h4 class="text-xs font-bold text-gray-500 uppercase mb-1">Batas Minimal (Nishab)</h4>
+                            <p class="font-bold text-lg text-zakat-dark">${data.nishab}</p>
+                        </div>
+                        <div class="bg-white border border-gray-200 p-4 rounded shadow-sm">
+                            <h4 class="text-xs font-bold text-gray-500 uppercase mb-1">Waktu Pembayaran</h4>
+                            <p class="font-bold text-lg text-zakat-dark">${data.waktu}</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.getElementById('maal-detail-content').innerHTML = html;
+
+            // Update sidebar active state
+            document.querySelectorAll('.maal-btn').forEach(btn => {
+                btn.classList.remove('border-zakat-primary', 'bg-gray-50');
+                btn.classList.add('border-transparent');
+            });
+            
+            // Find button by ID and highlight it (Fixed error here)
+            const activeBtn = document.getElementById(`btn-maal-${key}`);
+            if (activeBtn) {
+                activeBtn.classList.remove('border-transparent');
+                activeBtn.classList.add('border-zakat-primary', 'bg-gray-50');
+            }
+        }
+
+        // Calculator Logic
+        function updateCalcUI() {
+            const type = document.getElementById('calc-type').value;
+            const label = document.getElementById('input-label');
+            const prefix = document.getElementById('currency-prefix');
+            const input = document.getElementById('calc-amount');
+            
+            input.value = '';
+            document.getElementById('result-value').innerText = 'Rp 0';
+            document.getElementById('result-status').innerText = 'Menunggu Input';
+            document.getElementById('result-nishab').innerText = '-';
+            document.getElementById('result-rate').innerText = '-';
+
+            if (type === 'emas') {
+                label.innerText = 'Jumlah Emas (Gram)';
+                prefix.innerText = 'Gr';
+            } else if (type === 'profesi') {
+                label.innerText = 'Penghasilan Per Bulan (Rp)';
+                prefix.innerText = 'Rp';
+            } else {
+                label.innerText = 'Total Harta (Rp)';
+                prefix.innerText = 'Rp';
+            }
+        }
+
+        function calculate() {
+            const goldPrice = parseFloat(document.getElementById('gold-price').value) || 0;
+            const amount = parseFloat(document.getElementById('calc-amount').value) || 0;
+            const type = document.getElementById('calc-type').value;
+            
+            let nishabValue = 0;
+            let nishabText = '';
+            let zakatAmount = 0;
+            let isWajib = false;
+            let rateText = '2.5%';
+
+            if (type === 'emas') {
+                nishabValue = 85; // gram
+                nishabText = '85 Gram';
+                if (amount >= nishabValue) {
+                    isWajib = true;
+                    // Zakat emas is 2.5% of the gold weight, converted to money value
+                    zakatAmount = (amount * 0.025) * goldPrice; 
+                }
+            } else if (type === 'profesi') {
+                // Calculation Monthly
+                // Nishab per year = 85gr gold. Nishab per month = 85/12 gr gold.
+                nishabValue = (85 * goldPrice) / 12; 
+                nishabText = `Rp ${Math.round(nishabValue).toLocaleString('id-ID')} /bln`;
+                if (amount >= nishabValue) {
+                    isWajib = true;
+                    zakatAmount = amount * 0.025;
+                }
+            } else {
+                // Tabungan & Dagang
+                nishabValue = 85 * goldPrice;
+                nishabText = `Rp ${nishabValue.toLocaleString('id-ID')}`;
+                if (amount >= nishabValue) {
+                    isWajib = true;
+                    zakatAmount = amount * 0.025;
+                }
+            }
+
+            // Update UI
+            document.getElementById('result-nishab').innerText = nishabText;
+            document.getElementById('result-rate').innerText = rateText;
+            
+            if (isWajib) {
+                document.getElementById('result-status').innerText = 'WAJIB ZAKAT';
+                document.getElementById('result-status').className = 'text-2xl font-bold text-zakat-accent';
+                document.getElementById('result-value').innerText = `Rp ${Math.round(zakatAmount).toLocaleString('id-ID')}`;
+            } else {
+                document.getElementById('result-status').innerText = 'BELUM WAJIB';
+                document.getElementById('result-status').className = 'text-2xl font-bold text-gray-400';
+                document.getElementById('result-value').innerText = 'Rp 0';
+            }
+        }
+
+        function updateCalculations() {
+            // Real-time update optional, currently triggered by button
+        }
+
+        // Chart Rendering (Asnaf)
+        function renderAsnafChart() {
+            const ctx = document.getElementById('asnafChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Fakir', 'Miskin', 'Amil', 'Mu\'allaf', 'Riqab', 'Gharim', 'Fisabilillah', 'Ibnu Sabil'],
+                    datasets: [{
+                        data: [12.5, 12.5, 12.5, 12.5, 12.5, 12.5, 12.5, 12.5], // Equal distribution visualization
+                        backgroundColor: [
+                            '#F87171', // Red (Fakir)
+                            '#FB923C', // Orange (Miskin)
+                            '#FACC15', // Yellow (Amil)
+                            '#4ADE80', // Green (Muallaf)
+                            '#2DD4BF', // Teal (Riqab)
+                            '#60A5FA', // Blue (Gharim)
+                            '#818CF8', // Indigo (Fisabilillah)
+                            '#C084FC'  // Purple (Ibnu Sabil)
+                        ],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                boxWidth: 12,
+                                font: { size: 10 }
+                            }
+                        },
+                        title: {
+                            display: false,
+                            text: '8 Asnaf (Golongan)'
+                        }
+                    }
+                }
+            });
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            // Load initial Maal Detail
+            showMaalDetail('emas');
+            // Show first tab
+            switchTab('filosofi');
+        });
+
+    </script>
+</body>
+</html>
